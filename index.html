@@ -298,22 +298,6 @@ async function hfTts(text, rate) {
   return blob;
 }
 
-// ---------- Google TTS direct (fallback for listening only; no CORS issue for playback) ----------
-function googleTtsUrl(chunk) {
-  return 'https://translate.google.com/translate_tts?ie=UTF-8&tl=my&client=tw-ob&q='
-    + encodeURIComponent(chunk);
-}
-function playUrl(url) {
-  return new Promise((resolve, reject) => {
-    stopAudio();
-    audio = new Audio(url);
-    playResolve = resolve;
-    audio.onended = () => { const r = playResolve; playResolve = null; if (r) r(); };
-    audio.onerror = () => { playResolve = null; reject(new Error('google audio play failed')); };
-    audio.play().catch(reject);
-  });
-}
-
 // ---------- playback ----------
 function stopAudio() {
   if (audio) { try { audio.pause(); } catch (e) {} audio = null; }
@@ -344,26 +328,15 @@ async function speakMyanmar() {
   const id = ++speakToken;
   const rate = Math.round((parseFloat($('speed').value) - 1) * 100);
   clearError(); setBusy(true, false);
-  let hfDown = false; // remember within this session: skip HF once it fails
   try {
     for (const chunk of chunkText(text, 800)) {
       if (id !== speakToken) break;
-      let played = false;
-      if (!hfDown) {
-        try {
-          const blob = await hfTts(chunk, rate);
-          if (id !== speakToken) break;
-          await playBlob(blob);
-          played = true;
-        } catch (e) { hfDown = true; /* fall through to Google */ }
-      }
-      if (!played && id === speakToken) {
-        // fallback: Google TTS direct (robotic voice, but works when HF is down)
-        await playUrl(googleTtsUrl(chunk));
-      }
+      const blob = await hfTts(chunk, rate);
+      if (id !== speakToken) break;
+      await playBlob(blob);
     }
   } catch (e) {
-    showError('အသံထွက်မရဘူး:\n' + (e.message || e) + '\n(အသံ server တွေ ပျက်နေနိုင်တယ် — ခဏနေပြန်စမ်းပါ)');
+    showError('အသံထွက်မရဘူး:\nအသံ server ပျက်နေတယ် (' + (e.message || e) + ')\nခဏနေမှ ပြန်စမ်းကြည့်ပါ။');
   } finally {
     if (id === speakToken) setBusy(false, false);
   }
