@@ -118,6 +118,7 @@ textarea {
     <div class="pills">
       <button class="pill on" id="vThiha">Thiha (ယောကျ်ားလေး)</button>
       <button class="pill" id="vNilar">Nilar (မိန်းကလေး)</button>
+      <button class="pill" id="vDevice" style="display:none">စက်အသံ</button>
     </div>
   </div>
 
@@ -201,19 +202,28 @@ pillGroup(['langEn', 'langMy'], () => lang === 'en' ? 'langEn' : 'langMy', id =>
   $('mySection').classList.toggle('hidden', lang !== 'my');
   $('enSection').classList.toggle('hidden', lang !== 'en');
   $('enPitchRow').classList.toggle('hidden', lang !== 'en');
-  $('btnDl').style.display = lang === 'my' ? '' : 'none';
+  updateDlVisibility();
 });
-pillGroup(['vThiha', 'vNilar'], () => voiceKey === 'thiha' ? 'vThiha' : 'vNilar', id => {
-  voiceKey = id === 'vThiha' ? 'thiha' : 'nilar';
+const voiceIds = ['vThiha', 'vNilar', 'vDevice'];
+const voiceKeys = { vThiha: 'thiha', vNilar: 'nilar', vDevice: 'device' };
+const voiceIdOf = k => k === 'thiha' ? 'vThiha' : k === 'nilar' ? 'vNilar' : 'vDevice';
+pillGroup(voiceIds, () => voiceIdOf(voiceKey), id => {
+  voiceKey = voiceKeys[id];
+  updateDlVisibility();
 });
+function updateDlVisibility() {
+  $('btnDl').style.display = (lang === 'my' && voiceKey !== 'device') ? '' : 'none';
+}
 
 // ---------- sliders ----------
 $('speed').oninput = e => { $('speedVal').textContent = Number(e.target.value).toFixed(1) + 'x'; };
 $('pitch').oninput = e => { $('pitchVal').textContent = Number(e.target.value).toFixed(1); };
 
-// ---------- English voices (browser built-in) ----------
-function loadEnVoices() {
-  enVoices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('en'));
+// ---------- system voices (browser built-in) ----------
+let mySystemVoice = null;
+function loadVoices() {
+  const all = speechSynthesis.getVoices();
+  enVoices = all.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
   const sel = $('enVoice');
   sel.innerHTML = '';
   enVoices.forEach((v, i) => {
@@ -226,10 +236,19 @@ function loadEnVoices() {
     o.textContent = 'အသံမတွေ့ဘူး';
     sel.appendChild(o);
   }
+  // Burmese system voice (e.g. iPhone) — show device pill only if present
+  const my = all.filter(v => v.lang && v.lang.toLowerCase().replace('_', '-').startsWith('my'));
+  mySystemVoice = my[0] || null;
+  $('vDevice').style.display = mySystemVoice ? '' : 'none';
+  if (!mySystemVoice && voiceKey === 'device') {
+    voiceKey = 'thiha';
+    voiceIds.forEach(x => $(x).classList.toggle('on', x === 'vThiha'));
+    updateDlVisibility();
+  }
 }
 if ('speechSynthesis' in window) {
-  loadEnVoices();
-  speechSynthesis.onvoiceschanged = loadEnVoices;
+  loadVoices();
+  speechSynthesis.onvoiceschanged = loadVoices;
 }
 
 // ---------- text chunking ----------
@@ -321,10 +340,30 @@ function stopAll() {
   setBusy(false, false);
 }
 
+// ---------- device Burmese voice (no server needed) ----------
+function speakDevice() {
+  const text = $('text').value.trim();
+  if (!text || !mySystemVoice || !('speechSynthesis' in window)) return;
+  const id = ++speakToken;
+  clearError();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = mySystemVoice.lang;
+  u.voice = mySystemVoice;
+  u.rate = parseFloat($('speed').value);
+  u.onend = () => { if (id === speakToken) setBusy(false, false); };
+  u.onerror = e => {
+    if (id === speakToken) { setBusy(false, false); showError('စက်အသံ ထွက်မရဘူး'); }
+  };
+  setBusy(true, false);
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
 // ---------- speak ----------
 async function speakMyanmar() {
   const text = $('text').value.trim();
   if (!text) return;
+  if (voiceKey === 'device') { speakDevice(); return; }
   const id = ++speakToken;
   const rate = Math.round((parseFloat($('speed').value) - 1) * 100);
   clearError(); setBusy(true, false);
