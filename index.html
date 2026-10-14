@@ -247,7 +247,7 @@ function chunkText(text, maxLen) {
   return out.length ? out : [text];
 }
 
-// ---------- HF Edge TTS (Burmese) ----------
+// ---------- HF Edge TTS (Burmese, primary) ----------
 async function hfTts(text, rate) {
   // 1. submit
   const res = await fetch(HF_BASE + '/gradio_api/call/tts_interface', {
@@ -257,12 +257,13 @@ async function hfTts(text, rate) {
   });
   if (!res.ok) throw new Error('server error (' + res.status + ')');
   const { event_id } = await res.json();
+  if (!event_id) throw new Error('server error (no event)');
   // 2. SSE stream
   const sse = await fetch(HF_BASE + '/gradio_api/call/tts_interface/' + event_id);
   const reader = sse.body.getReader();
   const decoder = new TextDecoder();
   let buf = '', fileUrl = null;
-  const timeout = setTimeout(() => { try { reader.cancel(); } catch (e) {} }, 180000);
+  const timeout = setTimeout(() => { try { reader.cancel(); } catch (e) {} }, 120000);
   try {
     while (true) {
       const { done, value } = await reader.read();
@@ -272,6 +273,7 @@ async function hfTts(text, rate) {
       while ((idx = buf.indexOf('\n\n')) !== -1) {
         const block = buf.slice(0, idx);
         buf = buf.slice(idx + 2);
+        if (block.includes('event: error')) throw new Error('voice server ပျက်နေတယ်');
         for (const line of block.split('\n')) {
           if (!line.startsWith('data: ')) continue;
           try {
@@ -294,6 +296,22 @@ async function hfTts(text, rate) {
   const blob = await aRes.blob();
   if (blob.size < 1000) throw new Error('audio file သေးလွန်းတယ်');
   return blob;
+}
+
+// ---------- Google TTS direct (fallback for listening only; no CORS issue for playback) ----------
+function googleTtsUrl(chunk) {
+  return 'https://translate.google.com/translate_tts?ie=UTF-8&tl=my&client=tw-ob&q='
+    + encodeURIComponent(chunk);
+}
+function playUrl(url) {
+  return new Promise((resolve, reject) => {
+    stopAudio();
+    audio = new Audio(url);
+    playResolve = resolve;
+    audio.onended = () => { const r = playResolve; playResolve = null; if (r) r(); };
+    audio.onerror = () => { playResolve = null; reject(new Error('google audio play failed')); };
+    audio.play().catch(reject);
+  });
 }
 
 // ---------- playback ----------
@@ -326,15 +344,26 @@ async function speakMyanmar() {
   const id = ++speakToken;
   const rate = Math.round((parseFloat($('speed').value) - 1) * 100);
   clearError(); setBusy(true, false);
+  let hfDown = false; // remember within this session: skip HF once it fails
   try {
     for (const chunk of chunkText(text, 800)) {
       if (id !== speakToken) break;
-      const blob = await hfTts(chunk, rate);
-      if (id !== speakToken) break;
-      await playBlob(blob);
+      let played = false;
+      if (!hfDown) {
+        try {
+          const blob = await hfTts(chunk, rate);
+          if (id !== speakToken) break;
+          await playBlob(blob);
+          played = true;
+        } catch (e) { hfDown = true; /* fall through to Google */ }
+      }
+      if (!played && id === speakToken) {
+        // fallback: Google TTS direct (robotic voice, but works when HF is down)
+        await playUrl(googleTtsUrl(chunk));
+      }
     }
   } catch (e) {
-    showError('အသံရယူမရဘူး:\n' + (e.message || e));
+    showError('အသံထွက်မရဘူး:\n' + (e.message || e) + '\n(အသံ server တွေ ပျက်နေနိုင်တယ် — ခဏနေပြန်စမ်းပါ)');
   } finally {
     if (id === speakToken) setBusy(false, false);
   }
@@ -380,7 +409,7 @@ async function downloadMp3() {
     a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   } catch (e) {
-    showError('download မရဘူး:\n' + (e.message || e));
+    showError('download မရဘူး:\nအသံ server ပျက်နေတယ် (' + (e.message || e) + ')\nခဏနေမှ ပြန်စမ်းကြည့်ပါ။');
   } finally {
     if (id === speakToken) setBusy(false, false);
   }
