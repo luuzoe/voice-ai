@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="my">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice AI — Text to Voice</title>
+<style>
+@font-face {
+  font-family: 'NotoMyanmar';
+  src: url('fonts/NotoSansMyanmar-Regular.ttf') format('truetype');
+  font-weight: 400;
+}
+@font-face {
+  font-family: 'NotoMyanmar';
+  src: url('fonts/NotoSansMyanmar-Bold.ttf') format('truetype');
+  font-weight: 700;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'NotoMyanmar', sans-serif;
+  background: linear-gradient(180deg, #2A1A52 0%, #120A28 100%);
+  min-height: 100vh;
+  color: #fff;
+  padding: 20px 16px 40px;
+}
+.wrap { max-width: 560px; margin: 0 auto; }
+.header { display: flex; align-items: center; gap: 14px; margin-bottom: 20px; }
+.logo {
+  width: 58px; height: 58px; border-radius: 18px; flex-shrink: 0;
+  background: linear-gradient(135deg, #7C5CFF, #B24BF3);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 6px 16px rgba(124,92,255,.45);
+}
+.logo svg { width: 32px; height: 32px; fill: #fff; }
+.header h1 { font-size: 26px; font-weight: 700; }
+.header p { color: rgba(255,255,255,.7); font-size: 13px; margin-top: 2px; }
+.label { color: rgba(255,255,255,.6); font-size: 12px; font-weight: 700; margin: 14px 0 8px; }
+.pills { display: flex; gap: 10px; }
+.pill {
+  flex: 1; text-align: center; padding: 13px 8px; border-radius: 14px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.15);
+  cursor: pointer; font-size: 14px; font-family: inherit; color: #fff;
+  transition: all .15s;
+}
+.pill.on {
+  background: linear-gradient(135deg, #7C5CFF, #B24BF3);
+  border-color: transparent; font-weight: 700;
+  box-shadow: 0 4px 10px rgba(124,92,255,.35);
+}
+select {
+  width: 100%; padding: 12px 14px; border-radius: 14px;
+  background: rgba(255,255,255,.07); color: #fff;
+  border: 1px solid rgba(255,255,255,.15);
+  font-family: inherit; font-size: 14px;
+}
+select option { color: #000; }
+.slider-row { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+.slider-row .slabel { width: 100px; color: rgba(255,255,255,.7); font-size: 13px; flex-shrink: 0; }
+.slider-row .sval { width: 46px; text-align: right; font-size: 13px; flex-shrink: 0; }
+input[type=range] { flex: 1; accent-color: #B24BF3; }
+.tcard {
+  background: #fff; border-radius: 18px;
+  box-shadow: 0 6px 14px rgba(0,0,0,.25); margin-top: 6px;
+}
+textarea {
+  width: 100%; min-height: 150px; border: none; outline: none; resize: vertical;
+  border-radius: 18px; padding: 16px;
+  font-family: inherit; font-size: 15px; color: #222; background: transparent;
+}
+.btn3d {
+  font-family: inherit; border: none; cursor: pointer;
+  color: #fff; font-size: 17px; font-weight: 700;
+  border-radius: 18px; padding: 18px 16px; width: 100%;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  background: linear-gradient(135deg, var(--g1), var(--g2));
+  box-shadow: 0 6px 0 var(--sh), 0 10px 14px rgba(0,0,0,.3);
+  transition: transform .07s, box-shadow .07s;
+}
+.btn3d:active:not(:disabled) { transform: translateY(5px); box-shadow: none; }
+.btn3d:disabled {
+  background: linear-gradient(135deg, #5A5A6E, #43435A);
+  box-shadow: none; cursor: default;
+}
+.btn3d svg { width: 22px; height: 22px; fill: #fff; flex-shrink: 0; }
+.btn-row { display: flex; gap: 12px; margin-top: 12px; }
+.btn-row .btn3d { flex: 1; padding: 14px 10px; font-size: 15px; border-radius: 16px; }
+#error {
+  display: none; margin-top: 12px; padding: 14px; border-radius: 14px;
+  background: rgba(255,235,238,.94); color: #B71C1C; font-size: 13px;
+  white-space: pre-wrap; word-break: break-word;
+}
+.footer { text-align: center; color: rgba(255,255,255,.35); font-size: 12px; margin-top: 18px; }
+.speak-wrap { margin-top: 18px; }
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M12 15a3.5 3.5 0 0 0 3.5-3.5v-5a3.5 3.5 0 0 0-7 0v5A3.5 3.5 0 0 0 12 15zm6-3.5a6 6 0 0 1-12 0H4a8 8 0 0 0 7 7.94V22h2v-2.56A8 8 0 0 0 20 11.5h-2z"/></svg>
+    </div>
+    <div>
+      <h1>Voice AI</h1>
+      <p>စာသားကို အသံအဖြစ်ပြောင်းပါ</p>
+    </div>
+  </div>
+
+  <div class="label">ဘာသာစကား</div>
+  <div class="pills">
+    <button class="pill" id="langEn">English</button>
+    <button class="pill on" id="langMy">မြန်မာ</button>
+  </div>
+
+  <div id="mySection">
+    <div class="label">အသံရွေး</div>
+    <div class="pills">
+      <button class="pill on" id="vThiha">Thiha (ယောကျ်ားလေး)</button>
+      <button class="pill" id="vNilar">Nilar (မိန်းကလေး)</button>
+    </div>
+  </div>
+
+  <div id="enSection" class="hidden">
+    <div class="label">အသံ</div>
+    <select id="enVoice"></select>
+  </div>
+
+  <div class="label">အမြန်နှုန်း</div>
+  <div class="slider-row">
+    <input type="range" id="speed" min="0.5" max="1.5" step="0.1" value="1">
+    <span class="sval" id="speedVal">1.0x</span>
+  </div>
+
+  <div id="enPitchRow" class="slider-row hidden">
+    <span class="slabel">အသံအနိမ့်အမြင့်</span>
+    <input type="range" id="pitch" min="0.5" max="2" step="0.1" value="1">
+    <span class="sval" id="pitchVal">1.0</span>
+  </div>
+
+  <div class="label">စာသား</div>
+  <div class="tcard">
+    <textarea id="text" placeholder="ဖတ်ပြစေချင်တဲ့ စာသား ရိုက်ထည့် / paste လုပ်…">မင်္ဂလာပါ။ ဒါက Voice AI စမ်းသပ်မှုပါ။</textarea>
+  </div>
+
+  <div id="error"></div>
+
+  <div class="speak-wrap">
+    <button class="btn3d" id="btnSpeak" style="--g1:#7C5CFF;--g2:#B24BF3;--sh:#3D2A86;">
+      <svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z"/></svg>
+      <span>ဖတ်ပြ</span>
+    </button>
+  </div>
+  <div class="btn-row">
+    <button class="btn3d" id="btnStop" style="--g1:#FF5F6D;--g2:#FF8E53;--sh:#8F2B33;" disabled>
+      <svg viewBox="0 0 24 24"><path d="M6 6h12v12H6z"/></svg>
+      <span>ရပ်</span>
+    </button>
+    <button class="btn3d" id="btnDl" style="--g1:#00C9A7;--g2:#0088CC;--sh:#065F6B;">
+      <svg viewBox="0 0 24 24"><path d="M12 3v12.17l4.59-4.58L18 12l-6 6-6-6 1.41-1.41L12 15.17V3h0zm-7 16h14v2H5v-2z"/></svg>
+      <span id="dlLabel">MP3 ရယူ</span>
+    </button>
+  </div>
+
+  <div class="footer">Voice AI • အခမဲ့ • မြန်မာအသံ: Edge Thiha/Nilar</div>
+</div>
+
+<script>
+const HF_BASE = 'https://innoai-edge-tts-text-to-speech.hf.space';
+const VOICES = {
+  thiha: 'my-MM-ThihaNeural - my-MM (Male)',
+  nilar: 'my-MM-NilarNeural - my-MM (Female)'
+};
+let lang = 'my';           // 'my' | 'en'
+let voiceKey = 'thiha';    // 'thiha' | 'nilar'
+let speakToken = 0;
+let audio = null;          // current HTMLAudioElement
+let playResolve = null;
+let enVoices = [];
+
+const $ = id => document.getElementById(id);
+const errBox = $('error');
+function showError(msg) { errBox.style.display = 'block'; errBox.textContent = msg; }
+function clearError() { errBox.style.display = 'none'; errBox.textContent = ''; }
+function setBusy(speaking, downloading) {
+  $('btnSpeak').disabled = speaking || downloading;
+  $('btnStop').disabled = !speaking;
+  $('btnDl').disabled = speaking || downloading;
+  $('dlLabel').textContent = downloading ? 'ထုတ်နေတယ်…' : 'MP3 ရယူ';
+}
+
+// ---------- pills ----------
+function pillGroup(ids, get, set) {
+  ids.forEach(id => {
+    $(id).classList.toggle('on', get() === id);
+    $(id).onclick = () => { set(id); ids.forEach(x => $(x).classList.toggle('on', x === id)); };
+  });
+}
+pillGroup(['langEn', 'langMy'], () => lang === 'en' ? 'langEn' : 'langMy', id => {
+  lang = id === 'langEn' ? 'en' : 'my';
+  $('mySection').classList.toggle('hidden', lang !== 'my');
+  $('enSection').classList.toggle('hidden', lang !== 'en');
+  $('enPitchRow').classList.toggle('hidden', lang !== 'en');
+  $('btnDl').style.display = lang === 'my' ? '' : 'none';
+});
+pillGroup(['vThiha', 'vNilar'], () => voiceKey === 'thiha' ? 'vThiha' : 'vNilar', id => {
+  voiceKey = id === 'vThiha' ? 'thiha' : 'nilar';
+});
+
+// ---------- sliders ----------
+$('speed').oninput = e => { $('speedVal').textContent = Number(e.target.value).toFixed(1) + 'x'; };
+$('pitch').oninput = e => { $('pitchVal').textContent = Number(e.target.value).toFixed(1); };
+
+// ---------- English voices (browser built-in) ----------
+function loadEnVoices() {
+  enVoices = speechSynthesis.getVoices().filter(v => v.lang.toLowerCase().startsWith('en'));
+  const sel = $('enVoice');
+  sel.innerHTML = '';
+  enVoices.forEach((v, i) => {
+    const o = document.createElement('option');
+    o.value = i; o.textContent = v.name + ' (' + v.lang + ')';
+    sel.appendChild(o);
+  });
+  if (!enVoices.length) {
+    const o = document.createElement('option');
+    o.textContent = 'အသံမတွေ့ဘူး';
+    sel.appendChild(o);
+  }
+}
+if ('speechSynthesis' in window) {
+  loadEnVoices();
+  speechSynthesis.onvoiceschanged = loadEnVoices;
+}
+
+// ---------- text chunking ----------
+function chunkText(text, maxLen) {
+  const parts = text.split(/(?<=[။.!?\n])/);
+  const out = [];
+  let buf = '';
+  for (const p of parts) {
+    const t = p.trim();
+    if (!t) continue;
+    if ((buf + ' ' + t).trim().length > maxLen && buf) { out.push(buf.trim()); buf = ''; }
+    buf = buf ? buf + ' ' + t : t;
+  }
+  if (buf.trim()) out.push(buf.trim());
+  return out.length ? out : [text];
+}
+
+// ---------- HF Edge TTS (Burmese) ----------
+async function hfTts(text, rate) {
+  // 1. submit
+  const res = await fetch(HF_BASE + '/gradio_api/call/tts_interface', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: [text, VOICES[voiceKey], rate, 0] })
+  });
+  if (!res.ok) throw new Error('server error (' + res.status + ')');
+  const { event_id } = await res.json();
+  // 2. SSE stream
+  const sse = await fetch(HF_BASE + '/gradio_api/call/tts_interface/' + event_id);
+  const reader = sse.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = '', fileUrl = null;
+  const timeout = setTimeout(() => { try { reader.cancel(); } catch (e) {} }, 180000);
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      let idx;
+      while ((idx = buf.indexOf('\n\n')) !== -1) {
+        const block = buf.slice(0, idx);
+        buf = buf.slice(idx + 2);
+        for (const line of block.split('\n')) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (Array.isArray(payload) && payload[0] && payload[0].url) {
+              fileUrl = payload[0].url;
+              break;
+            }
+          } catch (e) {}
+        }
+        if (fileUrl) break;
+      }
+      if (fileUrl) break;
+    }
+  } finally { clearTimeout(timeout); }
+  if (!fileUrl) throw new Error('အသံ file မရဘူး');
+  // 3. download mp3
+  const aRes = await fetch(fileUrl);
+  if (!aRes.ok) throw new Error('audio download failed (' + aRes.status + ')');
+  const blob = await aRes.blob();
+  if (blob.size < 1000) throw new Error('audio file သေးလွန်းတယ်');
+  return blob;
+}
+
+// ---------- playback ----------
+function stopAudio() {
+  if (audio) { try { audio.pause(); } catch (e) {} audio = null; }
+  if (playResolve) { const r = playResolve; playResolve = null; r(); }
+}
+function playBlob(blob) {
+  return new Promise((resolve, reject) => {
+    stopAudio();
+    const url = URL.createObjectURL(blob);
+    audio = new Audio(url);
+    playResolve = () => { URL.revokeObjectURL(url); resolve(); };
+    audio.onended = () => { const r = playResolve; playResolve = null; if (r) r(); };
+    audio.onerror = () => { playResolve = null; reject(new Error('audio play failed')); };
+    audio.play().catch(reject);
+  });
+}
+function stopAll() {
+  speakToken++;
+  stopAudio();
+  try { speechSynthesis.cancel(); } catch (e) {}
+  setBusy(false, false);
+}
+
+// ---------- speak ----------
+async function speakMyanmar() {
+  const text = $('text').value.trim();
+  if (!text) return;
+  const id = ++speakToken;
+  const rate = Math.round((parseFloat($('speed').value) - 1) * 100);
+  clearError(); setBusy(true, false);
+  try {
+    for (const chunk of chunkText(text, 800)) {
+      if (id !== speakToken) break;
+      const blob = await hfTts(chunk, rate);
+      if (id !== speakToken) break;
+      await playBlob(blob);
+    }
+  } catch (e) {
+    showError('အသံရယူမရဘူး:\n' + (e.message || e));
+  } finally {
+    if (id === speakToken) setBusy(false, false);
+  }
+}
+function speakEnglish() {
+  const text = $('text').value.trim();
+  if (!text || !('speechSynthesis' in window)) {
+    if (!('speechSynthesis' in window)) showError('ဒီ browser က English အသံ မရဘူး');
+    return;
+  }
+  const id = ++speakToken;
+  clearError();
+  const u = new SpeechSynthesisUtterance(text);
+  u.lang = 'en-US';
+  const v = enVoices[parseInt($('enVoice').value, 10)];
+  if (v) u.voice = v;
+  u.rate = parseFloat($('speed').value);
+  u.pitch = parseFloat($('pitch').value);
+  u.onend = () => { if (id === speakToken) setBusy(false, false); };
+  u.onerror = e => {
+    if (id === speakToken) { setBusy(false, false); showError('အသံထွက်မရဘူး: ' + (e.error || '')); }
+  };
+  setBusy(true, false);
+  speechSynthesis.cancel();
+  speechSynthesis.speak(u);
+}
+
+// ---------- download ----------
+async function downloadMp3() {
+  const text = $('text').value.trim();
+  if (!text) return;
+  const id = ++speakToken;
+  const rate = Math.round((parseFloat($('speed').value) - 1) * 100);
+  clearError(); setBusy(false, true);
+  try {
+    const blob = await hfTts(text, rate);
+    if (id !== speakToken) return;
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'voice-ai.mp3';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  } catch (e) {
+    showError('download မရဘူး:\n' + (e.message || e));
+  } finally {
+    if (id === speakToken) setBusy(false, false);
+  }
+}
+
+$('btnSpeak').onclick = () => { lang === 'my' ? speakMyanmar() : speakEnglish(); };
+$('btnStop').onclick = stopAll;
+$('btnDl').onclick = downloadMp3;
+</script>
+</body>
+</html>
